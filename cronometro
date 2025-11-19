@@ -1,0 +1,117 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity cronometro is
+    Port (
+        clock_principal          : in  STD_LOGIC;
+        sinal_reset              : in  STD_LOGIC;
+        botao_iniciar            : in  STD_LOGIC;
+        botao_parar              : in  STD_LOGIC;
+        saida_anodo_displays     : out STD_LOGIC_VECTOR(2 downto 0);
+        saida_segmentos_display  : out STD_LOGIC_VECTOR(6 downto 0)
+    );
+end cronometro;
+
+architecture Behavioral of cronometro is
+
+    signal pulso_um_hertz                : STD_LOGIC := '0';
+    signal contador_divisor_clock        : INTEGER range 0 to 49_999_999 := 0;
+    signal contador_minutos              : INTEGER range 0 to 9 := 0;
+    signal contador_segundos             : INTEGER range 0 to 59 := 0;
+    signal cronometro_ativo              : STD_LOGIC := '0';
+    signal seletor_display_atual         : INTEGER range 0 to 2 := 0;
+    signal digito_exibido_no_display     : INTEGER range 0 to 9;
+
+begin
+
+    process(clock_principal, sinal_reset)
+    begin
+        if sinal_reset = '0' then
+            contador_divisor_clock <= 0;
+            pulso_um_hertz         <= '0';
+
+        elsif rising_edge(clock_principal) then
+            if contador_divisor_clock = 49_999_999 then
+                pulso_um_hertz <= not pulso_um_hertz;
+                contador_divisor_clock <= 0;
+            else
+                contador_divisor_clock <= contador_divisor_clock + 1;
+            end if;
+        end if;
+    end process;
+
+
+    process(pulso_um_hertz, sinal_reset)
+    begin
+        if sinal_reset = '0' then
+            contador_minutos  <= 0;
+            contador_segundos <= 0;
+            cronometro_ativo  <= '0';
+
+        elsif rising_edge(pulso_um_hertz) then
+
+            if botao_iniciar = '1' then
+                cronometro_ativo <= '1';
+            elsif botao_parar = '1' then
+                cronometro_ativo <= '0';
+            end if;
+
+            if cronometro_ativo = '1' then
+                if contador_segundos = 59 then
+                    contador_segundos <= 0;
+
+                    if contador_minutos < 9 then
+                        contador_minutos <= contador_minutos + 1;
+                    end if;
+
+                else
+                    contador_segundos <= contador_segundos + 1;
+                end if;
+            end if;
+
+        end if;
+    end process;
+
+  
+    process(clock_principal)
+    begin
+        if rising_edge(clock_principal) then
+
+            case seletor_display_atual is
+                when 0 =>
+                    digito_exibido_no_display <= contador_segundos mod 10;
+                    saida_anodo_displays <= "110"; 
+
+                when 1 =>
+                    digito_exibido_no_display <= contador_segundos / 10;
+                    saida_anodo_displays <= "101";  
+
+                when others =>
+                    digito_exibido_no_display <= contador_minutos;
+                    saida_anodo_displays <= "011"; 
+            end case;
+
+            seletor_display_atual <= (seletor_display_atual + 1) mod 3;
+        end if;
+    end process;
+
+    process(digito_exibido_no_display)
+    begin
+        case digito_exibido_no_display is
+            when 0 => saida_segmentos_display <= "1000000";
+            when 1 => saida_segmentos_display <= "1111001";
+            when 2 => saida_segmentos_display <= "0100100";
+            when 3 => saida_segmentos_display <= "0110000";
+            when 4 => saida_segmentos_display <= "0011001";
+            when 5 => saida_segmentos_display <= "0010010";
+            when 6 => saida_segmentos_display <= "0000010";
+            when 7 => saida_segmentos_display <= "1111000";
+            when 8 => saida_segmentos_display <= "0000000";
+            when 9 => saida_segmentos_display <= "0010000";
+            when others => saida_segmentos_display <= "1111111";
+        end case;
+    end process;
+
+end Behavioral;
